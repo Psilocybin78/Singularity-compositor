@@ -1,0 +1,86 @@
+From d14e4f0749b02d4a41f036e49f3f9955e7e5731f Mon Sep 17 00:00:00 2001
+From: Nick <nickjb78@gmail.com>
+Date: Fri, 24 Apr 2026 19:49:42 -0400
+Subject: [PATCH] fix(input): deliver text-input-v3 enter/leave even when no
+ IME present
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+CInputMethodRelay::onKeyboardFocus gates the entire body on
+`!m_inputMethod.expired()` — but the body's only job is to dispatch
+zwp_text_input_v3.enter / .leave to clients on keyboard focus changes,
+which has nothing to do with whether an IME (fcitx, ibus, etc.) is
+connected to the seat.
+
+Symptom on a clean install with no IME running and an Electron app
+launched with `--enable-wayland-ime --wayland-text-input-version=3`
+(e.g. Claude Desktop, VS Code Insiders, Signal): the first time the
+window receives keyboard focus typing works, but after ANY focus
+change off-and-back (Alt+Tab, taskbar click, focuswindow dispatch,
+workspace cycle) typing dies silently. wl_keyboard.enter still
+arrives — uprobe-confirmed — but Electron's Wayland IME backend
+latches into "not focused for text" state and ignores the keys until
+something resyncs it (a real mouse click on the window goes through
+processMouseDownNormal → refocus, which takes a different path).
+
+Live verified via uprobe on the running compositor: pre-patch,
+hypr_imr_kbd_focus fires on every dispatch but hypr_ti_enter never
+fires; post-patch (NOP'd guard via gdb on the running PID, persisted
+to disk via this commit), hypr_ti_enter / hypr_ti_leave fire on every
+focus transition that involves a text-input-v3 client.
+
+The two downstream paths that *do* care about IME presence —
+deactivateIME (called from CTextInput::leave) and activateIME (called
+when the client enables text input) — already check
+m_inputMethod.expired() themselves, so the no-IME case stays correct
+end-to-end.
+
+This is upstream-Hyprland code (vaxerski 2022-08-05); will be filed
+as a discussion / PR after a few sessions of bare-metal stability.
+
+Co-Authored-By: singularity <singularity@entersingularity.ai>
+---
+ src/managers/input/InputMethodRelay.cpp | 26 ++++++++++++++++++++++---
+ 1 file changed, 23 insertions(+), 3 deletions(-)
+
+diff --git a/src/managers/input/InputMethodRelay.cpp b/src/managers/input/InputMethodRelay.cpp
+index 27fd80b6..a5f30ee0 100644
+--- a/src/managers/input/InputMethodRelay.cpp
++++ b/src/managers/input/InputMethodRelay.cpp
+@@ -131,9 +131,29 @@ void CInputMethodRelay::commitIMEState(CTextInput* pInput) {
+ }
+ 
+ void CInputMethodRelay::onKeyboardFocus(SP<CWLSurfaceResource> pSurface) {
+-    if (m_inputMethod.expired())
+-        return;
+-
++    // Singularity patch: do NOT gate text-input-v3 enter/leave on
++    // having an IME registered. Upstream's `if (m_inputMethod.expired())
++    // return;` guard at the top of this function silently drops
++    // zwp_text_input_v3.enter delivery on every focus change when no
++    // IME (fcitx, ibus, etc.) is connected to the seat — but
++    // text-input-v3 is *also* the protocol that browsers and Electron
++    // apps with `--enable-wayland-ime --wayland-text-input-version=3`
++    // use to receive input in their built-in Wayland IME path. Without
++    // the enter event, those clients latch into "I'm not focused for
++    // text" state after the first focus change and typing dies until
++    // a real-mouse-click resyncs them via processMouseDownNormal →
++    // refocus.
++    //
++    // The wire-level enter/leave calls below have no IME dependency —
++    // they're plain `zwp_text_input_v3.enter(surface)` / `.leave()`
++    // protocol events. CTextInput::leave() does call deactivateIME()
++    // at the end, but deactivateIME has its own m_inputMethod-expired
++    // gate, so the no-IME case is already handled correctly.
++    //
++    // Bug verified live via uprobe on a clean Singularity install
++    // running Claude Desktop (Electron, --wayland-text-input-version=3,
++    // no IME): hypr_imr_kbd_focus fires, hypr_kbd_enter_entry fires,
++    // hypr_ti_enter never fires. After this patch, ti_enter fires too.
+     if (pSurface == m_lastKbFocus)
+         return;
+ 
+-- 
+2.53.0
+
