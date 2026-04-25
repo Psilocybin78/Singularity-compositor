@@ -1,0 +1,82 @@
+From 8c24b8da9833ae16f950e7c62a882d9ade66b05f Mon Sep 17 00:00:00 2001
+From: Nick <nickjb78@gmail.com>
+Date: Fri, 24 Apr 2026 20:50:03 -0400
+Subject: [PATCH] fix(input): refocus on click when keyboard focus drifted to a
+ layer surface
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+processMouseDownNormal's refocus condition only triggered when the
+clicked window differed from FocusState::window() — but that toplevel
+window pointer is NOT updated when keyboard focus moves to a layer
+surface via mouseMoveUnified's layer-focus path (rawSurfaceFocus
+without rawWindowFocus). So after the user clicks on the desktop bg
+layer / topbar / taskbar / notification daemon, focusState->window()
+still points at the previous window, and a click back into that
+previous window short-circuits the refocus call.
+
+The keyboard surface meanwhile points at the layer client. Clients
+of the layer (singularity-desktop with KeyboardMode::OnDemand, in
+practice) have keyboard focus; any text-input-v3 client like
+Claude Desktop / Electron apps with --enable-wayland-ime
+--wayland-text-input-version=3 / browsers / Signal / VS Code that
+was the focus before the layer click goes dead-typing until something
+else perturbs focus state (workspace switch, Alt+Tab, mouse over a
+different window).
+
+Fix: also call refocus() when the keyboard-focus client doesn't
+match the click-target window's client. refocus → mouseMoveUnified
+already self-dedups when no actual change is needed, so the extra
+condition is safe in the no-drift case (it's just an additional
+trigger for the drift case).
+
+Live-uprobe-verified on bare metal: click on desktop bg fires
+ti_leave on Claude TI; click back on Claude now fires ti_enter on
+Claude TI (pre-patch: NO events, focus stayed trapped on desktop
+layer).
+
+Stacks on top of d14e4f07 (no-IME text-input-v3 enter delivery) —
+together they make typing recover automatically on the click-back
+gesture without an IME being present.
+
+Co-Authored-By: singularity <singularity@entersingularity.ai>
+---
+ src/managers/input/InputManager.cpp | 20 +++++++++++++++++++-
+ 1 file changed, 19 insertions(+), 1 deletion(-)
+
+diff --git a/src/managers/input/InputManager.cpp b/src/managers/input/InputManager.cpp
+index 64825633..eec65303 100644
+--- a/src/managers/input/InputManager.cpp
++++ b/src/managers/input/InputManager.cpp
+@@ -794,8 +794,26 @@ void CInputManager::processMouseDownNormal(const IPointer::SButtonEvent& e) {
+             if (*PFOLLOWMOUSE == 3) // don't refocus on full loose
+                 break;
+ 
++            // Singularity patch: also refocus when click hits a window
++            // whose client differs from the current keyboard-focus
++            // client. Upstream's `focusState->window() != w` is a
++            // false-negative when keyboard focus has drifted to a
++            // layer surface (clicking on the desktop bg, topbar,
++            // taskbar, notification daemon, etc.) while the toplevel
++            // "focused window" pointer in FocusState still points at
++            // the previous window. Without this extra check, clicking
++            // back into the previous window does not trigger refocus,
++            // keyboard focus stays trapped on the layer, and any
++            // text-input-v3 client (Electron, browsers) goes dead
++            // until the user moves to a different window first. Live-
++            // uprobe-verified on the singularity-desktop layer
++            // (KeyboardMode::OnDemand).
++            const auto KBSURF      = g_pSeatManager->m_state.keyboardFocus.lock();
++            const auto KBCLIENT    = KBSURF ? KBSURF->client() : nullptr;
++            const auto WCLIENT     = (w && w->wlSurface() && w->wlSurface()->resource()) ? w->wlSurface()->resource()->client() : nullptr;
++            const bool clientDrift = w && WCLIENT && KBCLIENT != WCLIENT;
+             if ((g_pSeatManager->m_mouse.expired() || !isConstrained()) /* No constraints */
+-                && (w && Desktop::focusState()->window() != w) /* window should change */) {
++                && (w && (Desktop::focusState()->window() != w || clientDrift)) /* window OR keyboard-focus client should change */) {
+                 // a bit hacky
+                 // if we only pressed one button, allow us to refocus. m_lCurrentlyHeldButtons.size() > 0 will stick the focus
+                 if (m_currentlyHeldButtons.size() == 1) {
+-- 
+2.53.0
+
