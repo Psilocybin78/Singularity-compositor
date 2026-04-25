@@ -859,8 +859,26 @@ void CInputManager::processMouseDownNormal(const IPointer::SButtonEvent& e, SP<I
             if (*PFOLLOWMOUSE == 3) // don't refocus on full loose
                 break;
 
+            // Singularity patch: also refocus when click hits a window
+            // whose client differs from the current keyboard-focus
+            // client. Upstream's `focusState->window() != w` is a
+            // false-negative when keyboard focus has drifted to a
+            // layer surface (clicking on the desktop bg, topbar,
+            // taskbar, notification daemon, etc.) while the toplevel
+            // "focused window" pointer in FocusState still points at
+            // the previous window. Without this extra check, clicking
+            // back into the previous window does not trigger refocus,
+            // keyboard focus stays trapped on the layer, and any
+            // text-input-v3 client (Electron, browsers) goes dead
+            // until the user moves to a different window first. Live-
+            // uprobe-verified on the singularity-desktop layer
+            // (KeyboardMode::OnDemand).
+            const auto KBSURF      = g_pSeatManager->m_state.keyboardFocus.lock();
+            const auto KBCLIENT    = KBSURF ? KBSURF->client() : nullptr;
+            const auto WCLIENT     = (w && w->wlSurface() && w->wlSurface()->resource()) ? w->wlSurface()->resource()->client() : nullptr;
+            const bool clientDrift = w && WCLIENT && KBCLIENT != WCLIENT;
             if ((g_pSeatManager->m_mouse.expired() || !isConstrained()) /* No constraints */
-                && (w && Desktop::focusState()->window() != w) /* window should change */) {
+                && (w && (Desktop::focusState()->window() != w || clientDrift)) /* window OR keyboard-focus client should change */) {
                 // a bit hacky
                 // if we only pressed one button, allow us to refocus. m_lCurrentlyHeldButtons.size() > 0 will stick the focus
                 if (m_currentlyHeldButtons.size() == 1) {
