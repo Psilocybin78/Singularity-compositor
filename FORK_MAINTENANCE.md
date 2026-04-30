@@ -25,7 +25,9 @@ apps/compositor/                           # this submodule
   ├── (upstream Hyprland tree)
   ├── FORK_MAINTENANCE.md                  # this file
   └── patches/                             # Singularity-specific patches
-       └── (empty for now)
+       ├── 0001-keyboard-and-pointer-leave-off-currentSurface.patch
+       ├── 0002-input-method-relay-no-ime-text-input-enter.patch
+       └── 0003-input-manager-refocus-on-layer-drift.patch
 ```
 
 ### Remotes
@@ -39,8 +41,9 @@ apps/compositor/                           # this submodule
   GitHub keeps it synced automatically. Used as the target of
   rebase-onto when upgrading the pin.
 - **`singularity`** — the branch every Singularity build consumes.
-  Based on a tagged upstream commit (currently `v0.54.3`) with
-  zero divergence until the first Singularity patch lands.
+  Based on a tagged upstream commit (currently `v0.54.3`) with the
+  Singularity-specific patches (cursor/seat focus delivery + text-input-v3
+  enter/leave + layer-drift refocus) stacked on top.
 
 ### Current pin
 
@@ -49,7 +52,7 @@ apps/compositor/                           # this submodule
 | Upstream version | `v0.54.3` |
 | Upstream commit | `521ece463c4a9d3d128670688a34756805a4328f` |
 | Forked on | `2026-04-22` |
-| Singularity patches | 0 (fork-only baseline) |
+| Singularity patches | 3 (cursor/seat focus, text-input-v3 enter, layer-drift refocus) |
 
 ---
 
