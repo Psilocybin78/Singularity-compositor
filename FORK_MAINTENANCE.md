@@ -86,6 +86,66 @@ git add apps/compositor
 git commit -m "compositor: bump pin to Hyprland v0.55.0"
 ```
 
+After the rebase + build, refresh the running install on the
+bare-metal box (run from repo root):
+
+```bash
+cd apps/compositor
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+cd ../..
+
+# Installs binary + headers to /usr/local AND rebuilds every
+# enabled hyprpm plugin against the new ABI. See "Refreshing the
+# installed compositor" below for what this script does and why
+# hyprpm's built-in update can't do it for forks.
+bash scripts/ops/refresh_compositor.sh
+```
+
+---
+
+## Refreshing the installed compositor
+
+The fork's `singularity` branch carries commits that don't exist in
+`hyprwm/Hyprland`. That breaks hyprpm's built-in workflow: `hyprpm
+update` tries to `git checkout` the running Hyprland's commit out of
+an upstream clone and exits with `Could not checkout the running
+Hyprland commit`.
+
+Consequence: after every rebuild of the fork, hyprpm refuses to
+reload any plugin until something rebuilds them against the fork's
+ABI. Symptom is `hyprctl plugin list` reporting "no plugins loaded"
+and window decorations (hyprbars title bar / traffic lights /
+window frames) disappearing.
+
+The repair script is `scripts/ops/refresh_compositor.sh`. Run it as
+your login user — it `sudo`s internally for the privileged steps
+because `hyprpm` itself refuses to run as root:
+
+```bash
+bash scripts/ops/refresh_compositor.sh
+```
+
+What it does:
+
+1. `sudo cmake --install apps/compositor/build` if `/usr/local/include/hyprland/src/version.h`'s `GIT_COMMIT_HASH` ≠ the running compositor's commit. The build step alone does NOT refresh `/usr/local` headers — without the install, `pkg-config --cflags hyprland` keeps returning Arch package headers (commit `521ece46`) and any plugin built against them will embed the wrong commit and be rejected at load.
+2. Clones `hyprland-plugins` at the commit pinned in `hyprpm`'s `state.toml` ([repository].hash), then rebuilds every enabled plugin with `PKG_CONFIG_PATH=/usr/local/share/pkgconfig` so the plugin links against the fork's headers (commit `bf90ed2f` or whatever's current).
+3. Drops the rebuilt `.so` files into `/var/cache/hyprpm/singularity/hyprland-plugins/` and syncs `state.toml`'s `hash` to the running compositor's `Version ABI string:` line (`hyprctl version`). This is what hyprpm actually checks on reload — the binary's commit hash plus aquamarine/hyprutils/hyprgraphics/hyprcursor/hyprlang versions, concatenated.
+4. `hyprpm reload -n`.
+
+Idempotent: if `/usr/local` headers already match running, every
+enabled plugin's `.so` is already present, and `state.toml`'s hash
+already equals the running ABI string, the script runs a single
+`hyprpm reload -n` and exits.
+
+The Singularity-specific patches do not touch the plugin ABI (all 3
+modify `src/managers/*.cpp` only — see `patches/`). The hyprpm
+reload-block is over-cautious, not load-bearing — the plugins ARE
+ABI-compatible regardless of the embedded commit hash. The script's
+rebuild is mostly to update the embedded `GIT_COMMIT_HASH` so hyprpm
+will accept loading, with the side benefit of refreshing dep versions
+when Hyprland's dependencies (aquamarine etc.) advance.
+
 ---
 
 ## Smoke checklist
@@ -98,13 +158,17 @@ verify each item on the current bare-metal box:
 cd apps/compositor
 cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
+
+# Install + refresh plugins (see "Refreshing the installed compositor")
+cd ../..
+bash scripts/ops/refresh_compositor.sh
 ```
 
 | # | Check | How |
 |---|---|---|
 | 1 | Build succeeds clean | `cmake --build build` green |
 | 2 | Binary runs `--version` | `./build/Hyprland --version` |
-| 3 | Hyprbars plugin still loads | `hyprpm list` shows `hyprbars: loaded` after session |
+| 3 | Hyprbars plugin still loads | `hyprctl plugin list` shows `Plugin hyprbars by Vaxry` after running `refresh_compositor.sh`. If empty: hyprpm cache and running ABI are out of sync — re-run the refresh script |
 | 4 | `hyprctl -j clients` / `hyprctl -j monitors` / `hyprctl -j workspaces` all return valid JSON | compare to previous pin |
 | 5 | `zwlr_foreign_toplevel_manager_v1` advertised | `wayland-info` or `singularity-taskbar` connects |
 | 6 | `zwlr_layer_shell_v1` advertised | `singularity-topbar` + `singularity-taskbar` attach |
