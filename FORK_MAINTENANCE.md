@@ -99,7 +99,7 @@ cd ../..
 # enabled hyprpm plugin against the new ABI. See "Refreshing the
 # installed compositor" below for what this script does and why
 # hyprpm's built-in update can't do it for forks.
-bash scripts/ops/refresh_compositor.sh
+bash ops/scripts/refresh_compositor.sh
 ```
 
 ---
@@ -118,12 +118,12 @@ ABI. Symptom is `hyprctl plugin list` reporting "no plugins loaded"
 and window decorations (hyprbars title bar / traffic lights /
 window frames) disappearing.
 
-The repair script is `scripts/ops/refresh_compositor.sh`. Run it as
+The repair script is `ops/scripts/refresh_compositor.sh`. Run it as
 your login user — it `sudo`s internally for the privileged steps
 because `hyprpm` itself refuses to run as root:
 
 ```bash
-bash scripts/ops/refresh_compositor.sh
+bash ops/scripts/refresh_compositor.sh
 ```
 
 What it does:
@@ -161,7 +161,7 @@ cmake --build build -j$(nproc)
 
 # Install + refresh plugins (see "Refreshing the installed compositor")
 cd ../..
-bash scripts/ops/refresh_compositor.sh
+bash ops/scripts/refresh_compositor.sh
 ```
 
 | # | Check | How |
@@ -208,7 +208,7 @@ build:
 2. Ship via a `deploy/systemd/singularity-hyprland.service` user unit
    OR a systemd session preset, coexisting with stock Hyprland so
    the user can choose at login.
-3. Document the swap in `docs/BARE_METAL_COMPOSITOR_SETUP.md` (new,
+3. Document the swap in `docs/runbooks/BARE_METAL_COMPOSITOR_SETUP.md` (new,
    mirroring `BARE_METAL_STORAGE_SETUP.md`).
 
 Until then: `apps/compositor/` is a reference + safety net only.
