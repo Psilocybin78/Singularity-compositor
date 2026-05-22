@@ -186,7 +186,7 @@ submodule), file the upstream regression, and stay on the prior pin.
 
 1. **Don't modify this tree unless the change genuinely needs to live
    inside Hyprland.** Most Singularity shell work belongs in
-   `apps/shell/`, `apps/topbar/`, `apps/taskbar/`, or `apps/bridge/`.
+   `apps/shell/`, `apps/shell/topbar/`, `apps/shell/taskbar/`, or `apps/system/services/bridge/`.
 2. **Each Singularity patch is one focused commit on `singularity`.**
    Squashed, conventional-commit subject line, longer body describing
    *why* upstream won't want it (or tracking an upstream PR that would
