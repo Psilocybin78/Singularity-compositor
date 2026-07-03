@@ -25,10 +25,14 @@ apps/compositor/                           # this submodule
   ├── (upstream Hyprland tree)
   ├── FORK_MAINTENANCE.md                  # this file
   └── patches/                             # Singularity-specific patches
-       ├── 0001-keyboard-and-pointer-leave-off-currentSurface.patch
        ├── 0002-input-method-relay-no-ime-text-input-enter.patch
-       └── 0003-input-manager-refocus-on-layer-drift.patch
+       ├── 0003-input-manager-refocus-on-layer-drift.patch
+       └── REBASE_NOTES.md                  # per-rebase conflict log
 ```
+
+Numbering is history-stable: retired patches keep their number vacant.
+0001 (keyboard + pointer leave off m_currentSurface) was merged
+upstream as hyprwm/Hyprland#14143 and dropped at the v0.55.4 rebase.
 
 ### Remotes
 
@@ -41,18 +45,18 @@ apps/compositor/                           # this submodule
   GitHub keeps it synced automatically. Used as the target of
   rebase-onto when upgrading the pin.
 - **`singularity`**, the branch every Singularity build consumes.
-  Based on a tagged upstream commit (currently `v0.54.3`) with the
-  Singularity-specific patches (cursor/seat focus delivery + text-input-v3
-  enter/leave + layer-drift refocus) stacked on top.
+  Based on a tagged upstream commit (currently `v0.55.4`) with the
+  Singularity-specific patches (text-input-v3 enter/leave + layer-drift
+  refocus) stacked on top.
 
 ### Current pin
 
 | Field | Value |
 |---|---|
-| Upstream version | `v0.54.3` |
-| Upstream commit | `521ece463c4a9d3d128670688a34756805a4328f` |
-| Forked on | `2026-04-22` |
-| Singularity patches | 3 (cursor/seat focus, text-input-v3 enter, layer-drift refocus) |
+| Upstream version | `v0.55.4` |
+| Upstream commit | `a0136d8c04687bb36eb8a28eb9d1ff92aea99704` |
+| Forked on | `2026-04-22` (pin moved 2026-07-01) |
+| Singularity patches | 2 (text-input-v3 enter, layer-drift refocus); 0001 merged upstream (#14143) |
 
 ---
 
