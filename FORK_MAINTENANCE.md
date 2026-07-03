@@ -1,4 +1,4 @@
-# Singularity Compositor Fork — Maintenance Guide
+# Singularity Compositor Fork, Maintenance Guide
 
 This directory is a git submodule pointing at
 `Psilocybin78/Singularity-compositor`, a fork of `hyprwm/Hyprland`.
@@ -7,14 +7,14 @@ pinned upstream tag and holds every Singularity-specific patch.
 
 The fork exists so upstream Hyprland changes can never silently break
 the Singularity shell. New releases are adopted on our schedule, behind
-a smoke check — not on Hyprland's.
+a smoke check, not on Hyprland's.
 
 **Bare-metal install right now is stock Hyprland from Arch repos.** This
 fork is strategic infrastructure, not active runtime. When we have a
 concrete reason to diverge (plugin ABI hardening, deeper world-surface
 integration, animation hooks for agents) we start committing to
-`singularity` and eventually ship `singularity-hyprland` alongside — or
-replacing — the distro binary.
+`singularity` and eventually ship `singularity-hyprland` alongside, or
+replacing, the distro binary.
 
 ---
 
@@ -37,10 +37,10 @@ apps/compositor/                           # this submodule
 
 ### Branches
 
-- **`main`** — mirror of `hyprwm/Hyprland:main`. Never merge into this;
+- **`main`**, mirror of `hyprwm/Hyprland:main`. Never merge into this;
   GitHub keeps it synced automatically. Used as the target of
   rebase-onto when upgrading the pin.
-- **`singularity`** — the branch every Singularity build consumes.
+- **`singularity`**, the branch every Singularity build consumes.
   Based on a tagged upstream commit (currently `v0.54.3`) with the
   Singularity-specific patches (cursor/seat focus delivery + text-input-v3
   enter/leave + layer-drift refocus) stacked on top.
@@ -119,7 +119,7 @@ and window decorations (hyprbars title bar / traffic lights /
 window frames) disappearing.
 
 The repair script is `ops/scripts/refresh_compositor.sh`. Run it as
-your login user — it `sudo`s internally for the privileged steps
+your login user, it `sudo`s internally for the privileged steps
 because `hyprpm` itself refuses to run as root:
 
 ```bash
@@ -128,9 +128,9 @@ bash ops/scripts/refresh_compositor.sh
 
 What it does:
 
-1. `sudo cmake --install apps/compositor/build` if `/usr/local/include/hyprland/src/version.h`'s `GIT_COMMIT_HASH` ≠ the running compositor's commit. The build step alone does NOT refresh `/usr/local` headers — without the install, `pkg-config --cflags hyprland` keeps returning Arch package headers (commit `521ece46`) and any plugin built against them will embed the wrong commit and be rejected at load.
+1. `sudo cmake --install apps/compositor/build` if `/usr/local/include/hyprland/src/version.h`'s `GIT_COMMIT_HASH` ≠ the running compositor's commit. The build step alone does NOT refresh `/usr/local` headers, without the install, `pkg-config --cflags hyprland` keeps returning Arch package headers (commit `521ece46`) and any plugin built against them will embed the wrong commit and be rejected at load.
 2. Clones `hyprland-plugins` at the commit pinned in `hyprpm`'s `state.toml` ([repository].hash), then rebuilds every enabled plugin with `PKG_CONFIG_PATH=/usr/local/share/pkgconfig` so the plugin links against the fork's headers (commit `bf90ed2f` or whatever's current).
-3. Drops the rebuilt `.so` files into `/var/cache/hyprpm/singularity/hyprland-plugins/` and syncs `state.toml`'s `hash` to the running compositor's `Version ABI string:` line (`hyprctl version`). This is what hyprpm actually checks on reload — the binary's commit hash plus aquamarine/hyprutils/hyprgraphics/hyprcursor/hyprlang versions, concatenated.
+3. Drops the rebuilt `.so` files into `/var/cache/hyprpm/singularity/hyprland-plugins/` and syncs `state.toml`'s `hash` to the running compositor's `Version ABI string:` line (`hyprctl version`). This is what hyprpm actually checks on reload, the binary's commit hash plus aquamarine/hyprutils/hyprgraphics/hyprcursor/hyprlang versions, concatenated.
 4. `hyprpm reload -n`.
 
 Idempotent: if `/usr/local` headers already match running, every
@@ -139,8 +139,8 @@ already equals the running ABI string, the script runs a single
 `hyprpm reload -n` and exits.
 
 The Singularity-specific patches do not touch the plugin ABI (all 3
-modify `src/managers/*.cpp` only — see `patches/`). The hyprpm
-reload-block is over-cautious, not load-bearing — the plugins ARE
+modify `src/managers/*.cpp` only, see `patches/`). The hyprpm
+reload-block is over-cautious, not load-bearing, the plugins ARE
 ABI-compatible regardless of the embedded commit hash. The script's
 rebuild is mostly to update the embedded `GIT_COMMIT_HASH` so hyprpm
 will accept loading, with the side benefit of refreshing dep versions
@@ -168,7 +168,7 @@ bash ops/scripts/refresh_compositor.sh
 |---|---|---|
 | 1 | Build succeeds clean | `cmake --build build` green |
 | 2 | Binary runs `--version` | `./build/Hyprland --version` |
-| 3 | Hyprbars plugin still loads | `hyprctl plugin list` shows `Plugin hyprbars by Vaxry` after running `refresh_compositor.sh`. If empty: hyprpm cache and running ABI are out of sync — re-run the refresh script |
+| 3 | Hyprbars plugin still loads | `hyprctl plugin list` shows `Plugin hyprbars by Vaxry` after running `refresh_compositor.sh`. If empty: hyprpm cache and running ABI are out of sync, re-run the refresh script |
 | 4 | `hyprctl -j clients` / `hyprctl -j monitors` / `hyprctl -j workspaces` all return valid JSON | compare to previous pin |
 | 5 | `zwlr_foreign_toplevel_manager_v1` advertised | `wayland-info` or `singularity-taskbar` connects |
 | 6 | `zwlr_layer_shell_v1` advertised | `singularity-topbar` + `singularity-taskbar` attach |
@@ -201,7 +201,7 @@ submodule), file the upstream regression, and stay on the prior pin.
 
 ## Building and installing
 
-Not wired up yet — we haven't diverged. When we start shipping this
+Not wired up yet, we haven't diverged. When we start shipping this
 build:
 
 1. Produce `singularity-hyprland` binary (CMake rename target).

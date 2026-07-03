@@ -135,7 +135,7 @@ void CInputMethodRelay::onKeyboardFocus(SP<CWLSurfaceResource> pSurface) {
     // having an IME registered. Upstream's `if (m_inputMethod.expired())
     // return;` guard at the top of this function silently drops
     // zwp_text_input_v3.enter delivery on every focus change when no
-    // IME (fcitx, ibus, etc.) is connected to the seat — but
+    // IME (fcitx, ibus, etc.) is connected to the seat, but
     // text-input-v3 is *also* the protocol that browsers and Electron
     // apps with `--enable-wayland-ime --wayland-text-input-version=3`
     // use to receive input in their built-in Wayland IME path. Without
@@ -144,7 +144,7 @@ void CInputMethodRelay::onKeyboardFocus(SP<CWLSurfaceResource> pSurface) {
     // a real-mouse-click resyncs them via processMouseDownNormal →
     // refocus.
     //
-    // The wire-level enter/leave calls below have no IME dependency —
+    // The wire-level enter/leave calls below have no IME dependency, 
     // they're plain `zwp_text_input_v3.enter(surface)` / `.leave()`
     // protocol events. CTextInput::leave() does call deactivateIME()
     // at the end, but deactivateIME has its own m_inputMethod-expired

@@ -8,7 +8,7 @@ Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
 processMouseDownNormal's refocus condition only triggered when the
-clicked window differed from FocusState::window() — but that toplevel
+clicked window differed from FocusState::window(), but that toplevel
 window pointer is NOT updated when keyboard focus moves to a layer
 surface via mouseMoveUnified's layer-focus path (rawSurfaceFocus
 without rawWindowFocus). So after the user clicks on the desktop bg
@@ -36,7 +36,7 @@ ti_leave on Claude TI; click back on Claude now fires ti_enter on
 Claude TI (pre-patch: NO events, focus stayed trapped on desktop
 layer).
 
-Stacks on top of d14e4f07 (no-IME text-input-v3 enter delivery) —
+Stacks on top of d14e4f07 (no-IME text-input-v3 enter delivery), 
 together they make typing recover automatically on the click-back
 gesture without an IME being present.
 
