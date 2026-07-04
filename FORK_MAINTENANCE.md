@@ -9,12 +9,14 @@ The fork exists so upstream Hyprland changes can never silently break
 the Singularity shell. New releases are adopted on our schedule, behind
 a smoke check, not on Hyprland's.
 
-**Bare-metal install right now is stock Hyprland from Arch repos.** This
-fork is strategic infrastructure, not active runtime. When we have a
-concrete reason to diverge (plugin ABI hardening, deeper world-surface
-integration, animation hooks for agents) we start committing to
-`singularity` and eventually ship `singularity-hyprland` alongside, or
-replacing, the distro binary.
+**The bare-metal box runs this fork as its live compositor.** The
+build installs to `/usr/local/bin/Hyprland`, which shadows the Arch
+package binary in `$PATH`; `hyprctl version` on the box reports
+`built from branch singularity`. The distro `hyprland` package stays
+installed as the dependency anchor and fallback. (An earlier revision
+of this file said the install was stock Arch; that was stale, the
+fork has been the active runtime since the layer-drift refocus patch
+shipped.)
 
 ---
 
@@ -27,6 +29,7 @@ apps/compositor/                           # this submodule
   └── patches/                             # Singularity-specific patches
        ├── 0002-input-method-relay-no-ime-text-input-enter.patch
        ├── 0003-input-manager-refocus-on-layer-drift.patch
+       ├── 0004-focus-state-dispatch-focuswindow-under-exclusive-ls.patch
        └── REBASE_NOTES.md                  # per-rebase conflict log
 ```
 
@@ -56,7 +59,7 @@ upstream as hyprwm/Hyprland#14143 and dropped at the v0.55.4 rebase.
 | Upstream version | `v0.55.4` |
 | Upstream commit | `a0136d8c04687bb36eb8a28eb9d1ff92aea99704` |
 | Forked on | `2026-04-22` (pin moved 2026-07-01) |
-| Singularity patches | 2 (text-input-v3 enter, layer-drift refocus); 0001 merged upstream (#14143) |
+| Singularity patches | 3 (text-input-v3 enter, layer-drift refocus, dispatch-focuswindow under exclusive ls); 0001 merged upstream (#14143) |
 
 ---
 
@@ -142,8 +145,9 @@ enabled plugin's `.so` is already present, and `state.toml`'s hash
 already equals the running ABI string, the script runs a single
 `hyprpm reload -n` and exits.
 
-The Singularity-specific patches do not touch the plugin ABI (all 3
-modify `src/managers/*.cpp` only, see `patches/`). The hyprpm
+The Singularity-specific patches do not touch the plugin ABI (they
+modify `.cpp` implementation files only, no header/layout changes,
+see `patches/`). The hyprpm
 reload-block is over-cautious, not load-bearing, the plugins ARE
 ABI-compatible regardless of the embedded commit hash. The script's
 rebuild is mostly to update the embedded `GIT_COMMIT_HASH` so hyprpm

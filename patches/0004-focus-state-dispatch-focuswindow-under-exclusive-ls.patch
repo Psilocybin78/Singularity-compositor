@@ -1,0 +1,50 @@
+From 66e97f88671f983f72d87085d005cd3776296304 Mon Sep 17 00:00:00 2001
+From: Nick <nickjb78@gmail.com>
+Date: Sat, 4 Jul 2026 11:51:23 -0400
+Subject: [PATCH] fix(focus): honor explicit focuswindow dispatches while an
+ exclusive layer surface is mapped
+
+rawWindowFocus refuses any window focus while m_exclusiveLSes is
+non-empty. That guard is right for implicit focus changes (hover,
+mouse motion, map-time focus stealing), but it also eats explicit
+`dispatch focuswindow` requests, which carry direct user intent.
+
+Concrete breakage: GTK task switchers (hyprshell-style Alt+Tab
+overlays) map their picker as a keyboard-exclusive layer surface and
+dispatch focuswindow for the chosen window while the overlay is still
+mapped. The dispatch returns "ok" but is silently dropped, and when
+the overlay unmaps, focus falls back to the previously-active window,
+so the switch never happens.
+
+Allow FOCUS_REASON_DISPATCH_FOCUSWINDOW through the exclusive-ls
+refusal. The sessionlock refusal above it is untouched, a locked
+session still refuses all window focus. Implicit reasons (FFM, click,
+desktop state changes) still defer to the exclusive layer.
+
+Verified with a nested A/B probe: two clients + wofi (exclusive
+keyboard) mapped, `dispatch focuswindow` on the unfocused client.
+Unpatched: activewindow unchanged. Patched: activewindow moves to
+the target.
+---
+ src/desktop/state/FocusState.cpp | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/desktop/state/FocusState.cpp b/src/desktop/state/FocusState.cpp
+index 702b02c4..9671ef2a 100644
+--- a/src/desktop/state/FocusState.cpp
++++ b/src/desktop/state/FocusState.cpp
+@@ -104,7 +104,10 @@ void CFocusState::rawWindowFocus(PHLWINDOW pWindow, eFocusReason reason, SP<CWLS
+             return;
+         }
+ 
+-        if (!g_pInputManager->m_exclusiveLSes.empty()) {
++        // explicit focuswindow dispatches carry user intent (task switchers dispatch
++        // while their own exclusive overlay is still mapped); sessionlock is already
++        // refused above, so only implicit focus changes defer to the exclusive ls
++        if (!g_pInputManager->m_exclusiveLSes.empty() && reason != FOCUS_REASON_DISPATCH_FOCUSWINDOW) {
+             Log::logger->log(Log::DEBUG, "Refusing a keyboard focus to a window because of an exclusive ls");
+             return;
+         }
+-- 
+2.55.0
+
