@@ -104,7 +104,10 @@ void CFocusState::rawWindowFocus(PHLWINDOW pWindow, eFocusReason reason, SP<CWLS
             return;
         }
 
-        if (!g_pInputManager->m_exclusiveLSes.empty()) {
+        // explicit focuswindow dispatches carry user intent (task switchers dispatch
+        // while their own exclusive overlay is still mapped); sessionlock is already
+        // refused above, so only implicit focus changes defer to the exclusive ls
+        if (!g_pInputManager->m_exclusiveLSes.empty() && reason != FOCUS_REASON_DISPATCH_FOCUSWINDOW) {
             Log::logger->log(Log::DEBUG, "Refusing a keyboard focus to a window because of an exclusive ls");
             return;
         }
